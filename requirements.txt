@@ -1,0 +1,3 @@
+# 核心程式只使用 Python 3.6+ 標準函式庫。
+# 不需要 pip 安裝依賴。
+# 可選：webrtcvad（若安裝，仍需自行在 src/audio.py 擴充 backend）。

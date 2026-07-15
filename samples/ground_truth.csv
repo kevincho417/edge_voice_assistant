@@ -1,0 +1,6 @@
+id,audio_file,reference_transcript,expected_tool,expected_entity,expected_location
+001,001_weather_taipei.wav,今天台北會下雨嗎,weather,,台北
+002,002_time.wav,現在幾點,current_time,,
+003,003_news.wav,今天有什麼重要新聞,news,,
+004,004_server.wav,帕魯伺服器是否正常運作,server_status,palworld,
+005,005_search.wav,上網查一下最新的 Jetson 型號,web_search,,

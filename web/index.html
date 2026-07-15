@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jetson Edge Voice Lab</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Jetson Edge Voice Lab</h1>
+      <p>Local 0.5B Agent × Gemini Complete Audio</p>
+    </div>
+    <div class="status-pill" id="statePill">載入中</div>
+  </header>
+
+  <main>
+    <section class="panel controls">
+      <div class="control-group">
+        <label for="modeSelect">執行模式</label>
+        <select id="modeSelect">
+          <option value="local">Local</option>
+          <option value="gemini">Gemini 完整音訊</option>
+          <option value="compare">Compare</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
+      </div>
+      <button id="browserRecBtn" class="browser-rec primary">錄音</button>
+      <div class="mic-meter"><span id="micLevel"></span></div>
+    </section>
+
+    <section class="metrics-grid">
+      <article class="metric"><span>狀態</span><strong id="stateText">—</strong></article>
+      <article class="metric"><span>RAM</span><strong id="memoryText">—</strong></article>
+      <article class="metric"><span>GPU 使用率</span><strong id="gpuText">—</strong></article>
+      <article class="metric"><span>GPU 溫度</span><strong id="tempText">—</strong></article>
+      <article class="metric"><span>SWAP</span><strong id="swapText">—</strong></article>
+      <article class="metric"><span>Whisper</span><strong id="whisperCap">—</strong></article>
+      <article class="metric"><span>Local LLM</span><strong id="llmCap">—</strong></article>
+      <article class="metric"><span>Gemini</span><strong id="geminiCap">—</strong></article>
+      <article class="metric"><span>CPU Load</span><strong id="loadText">—</strong></article>
+    </section>
+
+    <section class="turn-header panel">
+      <div>
+        <h2>最新語音</h2>
+        <p id="turnMeta">尚無結果</p>
+      </div>
+      <audio id="audioPlayer" controls></audio>
+    </section>
+
+    <section class="comparison">
+      <article class="result-card" id="localCard">
+        <div class="card-title"><h2>Local Pipeline</h2><span id="localOk" class="badge">—</span></div>
+        <dl>
+          <dt>逐字稿</dt><dd id="localTranscript">—</dd>
+          <dt>工具</dt><dd id="localTool">—</dd>
+          <dt>信心</dt><dd id="localConfidence">—</dd>
+          <dt>回答</dt><dd id="localAnswer">—</dd>
+          <dt>總延遲</dt><dd id="localLatency">—</dd>
+          <dt>錯誤</dt><dd id="localError">—</dd>
+        </dl>
+        <details><summary>工具結果</summary><pre id="localToolResult">—</pre></details>
+      </article>
+
+      <article class="result-card" id="geminiCard">
+        <div class="card-title"><h2>Gemini Direct Audio</h2><span id="geminiOk" class="badge">—</span></div>
+        <dl>
+          <dt>逐字稿</dt><dd id="geminiTranscript">—</dd>
+          <dt>工具</dt><dd id="geminiTool">—</dd>
+          <dt>信心</dt><dd id="geminiConfidence">—</dd>
+          <dt>回答</dt><dd id="geminiAnswer">—</dd>
+          <dt>總延遲</dt><dd id="geminiLatency">—</dd>
+          <dt>錯誤</dt><dd id="geminiError">—</dd>
+        </dl>
+        <details><summary>工具結果</summary><pre id="geminiToolResult">—</pre></details>
+      </article>
+    </section>
+
+    <section class="panel history-panel">
+      <div class="card-title"><h2>歷史紀錄</h2><button id="refreshBtn">重新整理</button></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>模式</th><th>Local</th><th>Gemini</th><th>Local 延遲</th><th>Gemini 延遲</th></tr></thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

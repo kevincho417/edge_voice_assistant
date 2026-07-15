@@ -1,0 +1,150 @@
+{
+  "assistant": {
+    "mode": "local",
+    "language": "zh",
+    "default_location": "Taipei",
+    "speak_response": true,
+    "compare_speak_method": "local",
+    "history_limit": 1000
+  },
+  "audio": {
+    "device": "plughw:2,0",
+    "sample_rate": 16000,
+    "channels": 1,
+    "sample_width": 2,
+    "frame_ms": 20,
+    "pre_roll_ms": 400,
+    "start_speech_ms": 100,
+    "end_silence_ms": 700,
+    "max_utterance_seconds": 15,
+    "max_wait_seconds": 30,
+    "vad": {
+      "backend": "energy",
+      "calibration_ms": 800,
+      "minimum_rms": 120,
+      "noise_multiplier": 2.5
+    }
+  },
+  "whisper": {
+    "binary": "/opt/whisper.cpp/build/bin/main",
+    "model": "/opt/whisper.cpp/models/ggml-base.bin",
+    "threads": 4,
+    "language": "zh",
+    "timeout_seconds": 120
+  },
+  "local_llm": {
+    "enabled": true,
+    "base_url": "http://127.0.0.1:8080/v1",
+    "model": "qwen2.5-0.5b-instruct",
+    "timeout_seconds": 120,
+    "temperature": 0.1,
+    "max_plan_tokens": 160,
+    "max_answer_tokens": 120,
+    "context_limit": 1024
+  },
+  "gemini": {
+    "enabled": true,
+    "model": "gemini-2.5-flash",
+    "api_base": "https://generativelanguage.googleapis.com/v1beta",
+    "timeout_seconds": 90,
+    "max_output_tokens": 512
+  },
+  "routing": {
+    "rule_first": true,
+    "local_llm_fallback": true,
+    "gemini_fallback": true,
+    "minimum_confidence": 0.55,
+    "allowed_tools": [
+      "weather",
+      "current_time",
+      "web_search",
+      "news",
+      "server_status",
+      "home_status",
+      "general_answer",
+      "unknown"
+    ]
+  },
+  "tools": {
+    "weather": {
+      "enabled": true,
+      "geocoding_url": "https://geocoding-api.open-meteo.com/v1/search",
+      "forecast_url": "https://api.open-meteo.com/v1/forecast",
+      "timezone": "Asia/Taipei",
+      "cache_seconds": 600
+    },
+    "web_search": {
+      "enabled": true,
+      "provider": "brave",
+      "brave_url": "https://api.search.brave.com/res/v1/web/search",
+      "max_results": 5,
+      "fallback_wikipedia": true
+    },
+    "news": {
+      "enabled": true,
+      "rss_url": "https://news.google.com/rss/search",
+      "language": "zh-TW",
+      "country": "TW",
+      "max_results": 5
+    },
+    "server_status": {
+      "enabled": true,
+      "targets": {
+        "palworld": {
+          "aliases": [
+            "palworld",
+            "帕魯",
+            "帕魯伺服器",
+            "遊戲伺服器"
+          ],
+          "command": [
+            "systemctl",
+            "is-active",
+            "palworld.service"
+          ]
+        },
+        "docker": {
+          "aliases": [
+            "docker",
+            "容器服務"
+          ],
+          "command": [
+            "systemctl",
+            "is-active",
+            "docker.service"
+          ]
+        }
+      }
+    },
+    "home_assistant": {
+      "enabled": false,
+      "base_url": "http://192.168.1.100:8123",
+      "entities": {
+        "living_room_temperature": {
+          "aliases": [
+            "客廳溫度",
+            "客廳幾度"
+          ],
+          "entity_id": "sensor.living_room_temperature"
+        }
+      }
+    }
+  },
+  "tts": {
+    "enabled": true,
+    "binary": "espeak-ng",
+    "voice": "cmn",
+    "speed": 150,
+    "volume": 100,
+    "timeout_seconds": 60
+  },
+  "storage": {
+    "database": "data/assistant.db",
+    "recordings_dir": "data/recordings",
+    "keep_recordings": true
+  },
+  "web": {
+    "host": "0.0.0.0",
+    "port": 8000
+  }
+}

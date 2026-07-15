@@ -1,0 +1,21 @@
+[Unit]
+Description=Jetson Edge Voice Assistant
+After=network-online.target sound.target edge-llama-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+WorkingDirectory=@PROJECT_ROOT@
+EnvironmentFile=-/etc/edge-voice-assistant.env
+ExecStart=/usr/bin/python3 @PROJECT_ROOT@/app.py --config @PROJECT_ROOT@/config/config.json
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=@PROJECT_ROOT@/data
+
+[Install]
+WantedBy=multi-user.target
