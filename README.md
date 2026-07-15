@@ -35,6 +35,16 @@ edge_voice_assistant/
 └── data/
 ```
 
+## 快速部署（一鍵安裝）
+
+```bash
+git clone https://github.com/kevincho417/edge_voice_assistant.git
+cd edge_voice_assistant
+bash scripts/setup_all.sh
+```
+
+此腳本自動完成以下所有步驟（約 30-60 分鐘）。若需手動安裝，請繼續閱讀。
+
 ## 1. Jetson 系統準備
 
 ```bash
@@ -46,24 +56,17 @@ chmod +x scripts/*.sh
 
 重新登入或重開機，使使用者加入 `audio` 群組。
 
-## 2. 測試 USB 麥克風
+## 2. 音訊輸入
 
-```bash
-arecord -l
-./scripts/check_audio.sh default
-```
+本專案使用**瀏覽器麥克風**錄音（透過 Web Audio API），麥克風插在筆電上即可，不需要接在 Jetson 上。
 
-若麥克風是 `card 1, device 0`：
-
-```bash
-./scripts/check_audio.sh plughw:1,0
-```
-
-然後修改 `config/config.json`：
+若要使用 Jetson 上的 USB 麥克風，修改 `config/config.json`：
 
 ```json
-"audio": {"device": "plughw:1,0"}
+"audio": {"device": "plughw:2,0"}
 ```
+
+裝置編號可用 `arecord -l` 查詢。
 
 ## 3. 建置本地 ASR 與 LLM
 
@@ -132,39 +135,40 @@ HOME_ASSISTANT_TOKEN=...
 curl http://127.0.0.1:8080/v1/models
 ```
 
-## 6. 啟動 Dashboard
+## 6. 啟動（推薦使用 Watchdog）
+
+```bash
+bash scripts/watchdog.sh
+```
+
+Watchdog 會自動啟動 llama-server 和 Dashboard，並每 15 秒檢查服務狀態，掛掉自動重啟，記憶體不足時自動清 cache。
+
+或手動啟動：
 
 ```bash
 ./scripts/run_dev.sh --mode local
 ```
 
-瀏覽器開啟：
+## 7. 瀏覽器連線
 
-```text
-http://JETSON_IP:8000
-```
-
-查詢 Jetson IP：
+因為瀏覽器麥克風需要 `localhost` 才能使用，建議透過 SSH tunnel：
 
 ```bash
-hostname -I
+ssh -L 8000:127.0.0.1:8000 jetson@JETSON_IP
 ```
 
-## 7. 模式
+然後開啟 `http://localhost:8000`
 
-```bash
-./scripts/run_dev.sh --mode local
-./scripts/run_dev.sh --mode gemini
-./scripts/run_dev.sh --mode compare
-./scripts/run_dev.sh --mode hybrid
-```
+## 8. 模式
 
-- Local：音訊不離開裝置；本地 Whisper + 0.5B + 受控工具。
-- Gemini：完整音訊直接傳給 Gemini，再執行受控工具。
-- Compare：同一份 WAV 執行兩次並列顯示。
-- Hybrid：Local 優先，失敗或 unknown 時才送 Gemini。
+在 Dashboard 左上角下拉選單切換：
 
-## 8. 使用既有 WAV 測試
+- **Local**：Whisper base ASR + Gemma 2B GPU + 受控工具（音訊不離開裝置）
+- **Gemini**：完整 WAV 傳給 Gemini 2.5 Flash，一步完成 ASR + 理解
+- **Compare**：同一份 WAV 同時跑 Local 和 Gemini，並列比較
+- **Hybrid**：Local 優先，失敗或 unknown 時自動切到 Gemini
+
+## 9. 使用既有 WAV 測試
 
 WAV 必須是 16-bit、16 kHz、mono。轉換：
 
@@ -178,7 +182,7 @@ ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le test.wav
 python3 process_wav.py --audio test.wav --mode compare
 ```
 
-## 9. systemd 安裝
+## 10. systemd 安裝
 
 ```bash
 ./scripts/install_project.sh
@@ -196,7 +200,7 @@ systemctl status edge-voice-assistant
 journalctl -u edge-voice-assistant -f
 ```
 
-## 10. 常見問題
+## 11. 常見問題
 
 ### 找不到麥克風
 
@@ -216,7 +220,11 @@ id
 
 ### 本地模型輸出錯誤工具
 
-規則會優先處理天氣、時間、新聞及已知設備。其他問題才交給 0.5B。可在 `src/router.py` 增加規則，或將複雜問題切到 Hybrid。
+規則會優先處理天氣、時間、新聞及已知設備。問句（含「是什麼」「如何」等）自動走 general_answer。其他問題交給 Gemma 2B LLM fallback。可在 `src/router.py` 增加規則，或將複雜問題切到 Hybrid。
+
+### llama-server 頻繁掛掉
+
+Jetson Nano 4GB 記憶體有限，Gemma 2B 全 GPU offload 佔約 1.5GB。使用 watchdog.sh 自動重啟。也可用 `-ngl 12`（部分 GPU）減少記憶體但速度較慢。
 
 ### Gemini API 失敗
 
@@ -229,7 +237,7 @@ ping -c 2 generativelanguage.googleapis.com
 
 完整語音最長預設只有 15 秒，WAV 遠小於 inline audio 請求常見限制。
 
-## 11. 測試與匯出
+## 12. 測試與匯出
 
 ```bash
 python3 -m unittest discover -s tests -v
