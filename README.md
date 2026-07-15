@@ -2,7 +2,7 @@
 
 這是一套針對 Jetson Nano 4GB 設計的半雙工居家語音助理與教學比較平台。
 
-核心功能：
+## 核心功能
 
 - 瀏覽器麥克風錄音（透過 Web Audio API 上傳 WAV）
 - whisper.cpp base 本地繁體中文 ASR（CPU）+ opencc 簡轉繁
@@ -17,141 +17,39 @@
 - Watchdog 自動重啟 + 記憶體保護
 - 純 Python 3.6+ 標準函式庫（+ opencc），不依賴 FastAPI 或新版 Google SDK
 
-## 目錄
+## 快速部署（3 個指令）
 
-```text
-edge_voice_assistant/
-├── app.py
-├── process_wav.py
-├── export_history.py
-├── config/config.example.json
-├── src/
-├── web/
-├── scripts/
-├── systemd/
-├── tests/
-├── docs/
-├── samples/
-└── data/
-```
-
-## 快速部署（一鍵安裝）
+在全新或重刷的 Jetson Nano 4GB 上：
 
 ```bash
+# 1. 確保有網路（筆電 WiFi 共用時需設定 gateway）
+sudo ip route add default via 192.168.1.1 dev eth0
+
+# 2. Clone 並一鍵安裝（約 40-60 分鐘）
 git clone https://github.com/kevincho417/edge_voice_assistant.git
 cd edge_voice_assistant
 bash scripts/setup_all.sh
-```
 
-此腳本自動完成以下所有步驟（約 30-60 分鐘）。若需手動安裝，請繼續閱讀。
+# 3. （可選）設定 Gemini API key
+nano .env
 
-## 1. Jetson 系統準備
-
-```bash
-cd edge_voice_assistant
-chmod +x scripts/*.sh
-./scripts/install_system.sh
-./scripts/install_cmake.sh
-```
-
-重新登入或重開機，使使用者加入 `audio` 群組。
-
-## 2. 音訊輸入
-
-本專案使用**瀏覽器麥克風**錄音（透過 Web Audio API），麥克風插在筆電上即可，不需要接在 Jetson 上。
-
-若要使用 Jetson 上的 USB 麥克風，修改 `config/config.json`：
-
-```json
-"audio": {"device": "plughw:2,0"}
-```
-
-裝置編號可用 `arecord -l` 查詢。
-
-## 3. 建置本地 ASR 與 LLM
-
-```bash
-./scripts/build_whisper.sh
-./scripts/build_llama.sh
-./scripts/download_models.sh
-```
-
-預設：
-
-- Whisper base（推薦）：`/opt/whisper.cpp/models/ggml-base.bin`
-- llama-server（CUDA）：`/opt/llama.cpp/build/bin/server`
-- Gemma 2B Instruct Q4：`/opt/models/gemma-2b-it-q4_k_m.gguf`
-
-Whisper 模型選擇：
-
-| 模型 | 大小 | Jetson CPU 速度 | 中文準確度 |
-|------|------|----------------|-----------|
-| tiny | 77MB | ~9s | 差 |
-| base（推薦）| 142MB | ~19s | 中等 |
-| small | 461MB | ~70s | 好但太慢 |
-
-注意：Jetson Nano CUDA 10.2 需要特殊 patch 才能編譯 llama.cpp（NEON intrinsics + cuBLAS 相容）。詳見 scripts/ 中的編譯腳本。
-
-## 4. 建立設定檔
-
-```bash
-cp config/config.example.json config/config.json
-cp .env.example .env
-```
-
-測試時載入環境變數：
-
-```bash
-set -a
-source .env
-set +a
-```
-
-可選金鑰：
-
-```bash
-GEMINI_API_KEY=...
-BRAVE_SEARCH_API_KEY=...
-HOME_ASSISTANT_TOKEN=...
-```
-
-未設定 Brave Search 時，`web_search` 會退回 Wikipedia；天氣使用 Open-Meteo，不需要金鑰。
-
-## 5. 啟動 llama-server
-
-```bash
-/opt/llama.cpp/build/bin/server \
-  -m /opt/models/gemma-2b-it-q4_k_m.gguf \
-  --alias gemma-2b-it \
-  --host 127.0.0.1 --port 8080 \
-  -c 256 -t 4 -ngl 99 -n 120
-```
-
-`-ngl 99` 將所有層 offload 到 GPU（CUDA）。若記憶體不足可改 `-ngl 12`。
-
-確認：
-
-```bash
-curl http://127.0.0.1:8080/v1/models
-```
-
-## 6. 啟動（推薦使用 Watchdog）
-
-```bash
+# 4. 啟動
 bash scripts/watchdog.sh
 ```
 
-Watchdog 會自動啟動 llama-server 和 Dashboard，並每 15 秒檢查服務狀態，掛掉自動重啟，記憶體不足時自動清 cache。
+### setup_all.sh 自動完成：
 
-或手動啟動：
+1. 安裝系統套件（apt 失敗時自動用 wget+dpkg 從 HTTPS 下載）
+2. 安裝 cmake 3.28
+3. 編譯 whisper.cpp v1.2.1（CPU）+ 下載 base 模型
+4. 編譯 llama.cpp b2800 + 自動 patch NEON/CUDA（sm_53）
+5. 下載 Gemma 2B Instruct Q4 模型
+6. 安裝 opencc（簡轉繁）
+7. 設定 config 和 .env
 
-```bash
-./scripts/run_dev.sh --mode local
-```
+### 瀏覽器連線
 
-## 7. 瀏覽器連線
-
-因為瀏覽器麥克風需要 `localhost` 才能使用，建議透過 SSH tunnel：
+瀏覽器麥克風需要 `localhost` 才能使用，透過 SSH tunnel 連線：
 
 ```bash
 ssh -L 8000:127.0.0.1:8000 jetson@JETSON_IP
@@ -159,85 +57,206 @@ ssh -L 8000:127.0.0.1:8000 jetson@JETSON_IP
 
 然後開啟 `http://localhost:8000`
 
-## 8. 模式
+## 目錄結構
+
+```text
+edge_voice_assistant/
+├── app.py                  # 主程式入口
+├── process_wav.py          # 離線 WAV 測試
+├── export_history.py       # 匯出歷史紀錄
+├── config/
+│   ├── config.example.json # 設定範本
+│   └── config.json         # 實際設定（git ignore）
+├── src/
+│   ├── assistant.py        # 語音助理狀態機
+│   ├── audio.py            # ALSA 麥克風 + VAD
+│   ├── whisper_local.py    # whisper.cpp 適配器 + opencc
+│   ├── local_llm.py        # llama-server OpenAI 客戶端
+│   ├── gemini_audio.py     # Gemini REST API（無 SDK）
+│   ├── router.py           # 規則 + LLM 工具路由
+│   ├── tools.py            # 白名單工具執行器
+│   ├── tts.py              # espeak-ng 語音合成
+│   ├── store.py            # SQLite 歷史儲存
+│   ├── system_metrics.py   # GPU/RAM/溫度監控
+│   ├── web_server.py       # HTTP Dashboard API
+│   └── http_client.py      # urllib HTTP 客戶端
+├── web/                    # 瀏覽器 Dashboard
+├── scripts/
+│   ├── setup_all.sh        # 一鍵部署腳本
+│   ├── watchdog.sh         # 自動監控重啟
+│   ├── install_system.sh   # 系統套件安裝
+│   ├── install_cmake.sh    # cmake 升級
+│   ├── build_whisper.sh    # whisper.cpp 編譯
+│   ├── build_llama.sh      # llama.cpp 編譯
+│   ├── download_models.sh  # 模型下載
+│   └── run_dev.sh          # 開發模式啟動
+├── systemd/                # systemd 服務檔
+├── tests/                  # 單元測試
+├── docs/                   # 架構文件
+└── samples/                # 測試資料
+```
+
+## 系統架構
+
+```
+瀏覽器麥克風 → WAV 上傳 → Jetson Nano
+                              ├── Local Pipeline:
+                              │   ├── Whisper base (CPU, ~19s)
+                              │   ├── 規則路由 → 工具執行 → 模板回答
+                              │   └── LLM fallback → Gemma 2B (GPU)
+                              └── Gemini Pipeline:
+                                  ├── WAV → Gemini 2.5 Flash API
+                                  └── ASR + 理解 + 工具路由 一步完成
+```
+
+## 模式說明
 
 在 Dashboard 左上角下拉選單切換：
 
-- **Local**：Whisper base ASR + Gemma 2B GPU + 受控工具（音訊不離開裝置）
-- **Gemini**：完整 WAV 傳給 Gemini 2.5 Flash，一步完成 ASR + 理解
-- **Compare**：同一份 WAV 同時跑 Local 和 Gemini，並列比較
-- **Hybrid**：Local 優先，失敗或 unknown 時自動切到 Gemini
+| 模式 | 說明 | 延遲 |
+|------|------|------|
+| **Local** | Whisper + Gemma 2B GPU + 工具（音訊不離開裝置） | ~20-50s |
+| **Gemini** | WAV 直傳 Gemini 2.5 Flash（需 API key） | ~5-8s |
+| **Compare** | 同一段 WAV 同時跑 Local 和 Gemini，並列比較 | 取較慢 |
+| **Hybrid** | Local 優先，失敗或 unknown 時自動切 Gemini | 視情況 |
 
-## 9. 使用既有 WAV 測試
+## 手動安裝步驟
 
-WAV 必須是 16-bit、16 kHz、mono。轉換：
+若 `setup_all.sh` 不適用，可手動安裝：
 
-```bash
-ffmpeg -i input.mp3 -ar 16000 -ac 1 -c:a pcm_s16le test.wav
-```
-
-執行：
+### 1. 系統套件
 
 ```bash
-python3 process_wav.py --audio test.wav --mode compare
+# apt 方式
+sudo apt-get update
+sudo apt-get install -y gcc-8 g++-8 espeak-ng curl libcurl4-openssl-dev
+
+# 若 apt 失敗（Ubuntu 18.04 EOL），用 wget 從 HTTPS 下載：
+BASE="https://ports.ubuntu.com/ubuntu-ports/pool"
+wget --no-check-certificate -O /tmp/gcc-8.deb "$BASE/universe/g/gcc-8/gcc-8_8.4.0-1ubuntu1~18.04_arm64.deb"
+# （其他套件同理，詳見 setup_all.sh）
+sudo dpkg -i /tmp/*.deb
 ```
 
-## 10. systemd 安裝
+### 2. cmake 3.13+
 
 ```bash
-./scripts/install_project.sh
-sudo nano /opt/edge-voice-assistant/config/config.json
-sudo nano /etc/edge-voice-assistant.env
-sudo systemctl enable --now edge-llama-server
-sudo systemctl enable --now edge-voice-assistant
+bash scripts/install_cmake.sh
 ```
 
-查看：
+### 3. whisper.cpp（CPU）
 
 ```bash
-systemctl status edge-llama-server
-systemctl status edge-voice-assistant
-journalctl -u edge-voice-assistant -f
+WHISPER_REF=v1.2.1 bash scripts/build_whisper.sh
+wget -L -O /opt/whisper.cpp/models/ggml-base.bin \
+  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
 ```
 
-## 11. 常見問題
+Whisper 模型選擇：
 
-### 找不到麥克風
+| 模型 | 大小 | Jetson CPU 速度 | 中文準確度 |
+|------|------|----------------|-----------|
+| tiny | 77MB | ~9s | 差 |
+| **base（推薦）** | 142MB | ~19s | 中等 |
+| small | 461MB | ~70s | 好但太慢 |
+
+### 4. llama.cpp b2800（CUDA GPU）
+
+需要自動 patch NEON intrinsics（gcc-8 不支援 `vld1q_*_x4`）：
 
 ```bash
-arecord -l
-id
+# setup_all.sh 已包含自動 patch，手動編譯請參考腳本中的 python3 patch 段落
+export PATH="/usr/local/cuda/bin:$PATH"
+cmake -S /opt/llama.cpp -B /opt/llama.cpp/build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLLAMA_CUDA=ON -DLLAMA_NATIVE=ON -DLLAMA_CURL=ON \
+  -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 \
+  -DCMAKE_CUDA_ARCHITECTURES=53
+cmake --build /opt/llama.cpp/build --config Release -j 1
 ```
 
-確認使用者在 `audio` 群組，並將裝置改成 `plughw:CARD,DEVICE`。
+### 5. 下載模型
 
-### Whisper 很慢
+```bash
+wget -L -O /opt/models/gemma-2b-it-q4_k_m.gguf \
+  "https://huggingface.co/lmstudio-community/gemma-1.1-2b-it-GGUF/resolve/main/gemma-1.1-2b-it-Q4_K_M.gguf"
+```
 
-- 先用 tiny。
-- context 和回答長度保持小。
-- 不要同時開啟 Jetson 桌面與多個瀏覽器分頁。
-- `BUILD_JOBS=2` 避免編譯時記憶體耗盡。
+### 6. 設定
 
-### 本地模型輸出錯誤工具
+```bash
+cp .env.example .env
+nano .env  # 加入 GEMINI_API_KEY（可選）
+```
 
-規則會優先處理天氣、時間、新聞及已知設備。問句（含「是什麼」「如何」等）自動走 general_answer。其他問題交給 Gemma 2B LLM fallback。可在 `src/router.py` 增加規則，或將複雜問題切到 Hybrid。
+### 7. 啟動
+
+```bash
+# 推薦：Watchdog（自動啟動 llama-server + assistant，掛掉自動重啟）
+bash scripts/watchdog.sh
+
+# 或手動：
+/opt/llama.cpp/build/bin/server \
+  -m /opt/models/gemma-2b-it-q4_k_m.gguf \
+  --alias gemma-2b-it \
+  --host 127.0.0.1 --port 8080 \
+  -c 256 -t 4 -ngl 99 -n 120 &
+
+python3 app.py --mode local
+```
+
+`-ngl 99` 將所有層 offload 到 GPU（CUDA）。若記憶體不足可改 `-ngl 12`。
+
+## 網路設定
+
+Jetson Nano 透過筆電 WiFi 共用上網時：
+
+```bash
+# Jetson 上設定 gateway
+sudo ip route add default via 192.168.1.1 dev eth0
+
+# 筆電上（PowerShell 管理員）加 IP
+netsh interface ip add address "乙太網路" 192.168.1.1 255.255.255.0
+```
+
+## Watchdog 功能
+
+`scripts/watchdog.sh` 提供：
+
+- 每 15 秒檢查 llama-server 和 assistant
+- 服務掛掉自動重啟
+- 可用記憶體 < 300MB 時自動清 cache
+- 啟動時停用 Docker、清 cache 釋放記憶體
+
+## 常見問題
+
+### Whisper 辨識不準
+
+- 使用 base 模型（比 tiny 好很多）
+- opencc 自動簡轉繁
+- 專業術語（如「捲積神經網路」）準確度有限，建議用 Gemini 模式
 
 ### llama-server 頻繁掛掉
 
 Jetson Nano 4GB 記憶體有限，Gemma 2B 全 GPU offload 佔約 1.5GB。使用 watchdog.sh 自動重啟。也可用 `-ngl 12`（部分 GPU）減少記憶體但速度較慢。
 
+### apt 安裝失敗
+
+Ubuntu 18.04 已 EOL，`ports.ubuntu.com` 有時不可達。`setup_all.sh` 會自動切換到 wget 從 HTTPS 下載 .deb 安裝。
+
 ### Gemini API 失敗
 
-確認：
-
 ```bash
-echo "$GEMINI_API_KEY"
-ping -c 2 generativelanguage.googleapis.com
+# 確認 key 設定
+grep GEMINI .env
+
+# 測試連線
+curl "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY"
 ```
 
-完整語音最長預設只有 15 秒，WAV 遠小於 inline audio 請求常見限制。
+503/429 錯誤表示額度用完或服務忙，等待後重試或換 key。
 
-## 12. 測試與匯出
+## 測試與匯出
 
 ```bash
 python3 -m unittest discover -s tests -v
@@ -246,4 +265,7 @@ python3 export_history.py --output results.csv
 
 ## 安全限制
 
-本專案不讓 LLM 直接執行 Shell、開啟任意 URL 或自由控制 Home Assistant。所有工具與服務都必須寫進設定檔白名單。Web Dashboard 沒有登入功能，只應部署於可信任 LAN。
+- LLM 不能直接執行 Shell 或開啟任意 URL
+- 所有工具和服務必須寫進設定檔白名單
+- Web Dashboard 沒有登入功能，只應部署於可信任 LAN
+- API key 存在 `.env`（git ignore，不會上傳）
