@@ -4,16 +4,18 @@
 
 核心功能：
 
-- USB 麥克風持續收音
-- 能量式 VAD 自動切出一句話
-- whisper.cpp 本地繁體中文 ASR
-- Qwen2.5-0.5B Q4 本地工具路由與結果整理
-- 天氣、時間、網路搜尋、新聞、Home Assistant、服務狀態工具
-- Gemini 完整 WAV 音訊 API
+- 瀏覽器麥克風錄音（透過 Web Audio API 上傳 WAV）
+- whisper.cpp base 本地繁體中文 ASR（CPU）+ opencc 簡轉繁
+- Gemma 2B Instruct (Google) 本地 LLM（CUDA GPU 加速，19 層全 offload）
+- 規則優先工具路由 + LLM fallback
+- 天氣（Open-Meteo + Nominatim）、時間、網路搜尋、新聞、Home Assistant、服務狀態工具
+- Gemini 2.5 Flash 完整 WAV 音訊 API（雲端對比模式）
 - Local / Gemini / Compare / Hybrid 四種模式
 - 本地 espeak-ng 語音回答
-- 瀏覽器 Dashboard 與 SQLite 紀錄
-- 純 Python 3.6+ 標準函式庫，不依賴 FastAPI 或新版 Google SDK
+- 瀏覽器 Dashboard（GPU 使用率、RAM、SWAP 即時監控）
+- SQLite 歷史紀錄
+- Watchdog 自動重啟 + 記憶體保護
+- 純 Python 3.6+ 標準函式庫（+ opencc），不依賴 FastAPI 或新版 Google SDK
 
 ## 目錄
 
@@ -73,17 +75,19 @@ arecord -l
 
 預設：
 
-- Whisper multilingual tiny：`/opt/whisper.cpp/models/ggml-tiny.bin`
-- llama-server：`/opt/llama.cpp/build/bin/llama-server`
-- Qwen2.5-0.5B Q4：`/opt/models/qwen2.5-0.5b-instruct-q4_k_m.gguf`
+- Whisper base（推薦）：`/opt/whisper.cpp/models/ggml-base.bin`
+- llama-server（CUDA）：`/opt/llama.cpp/build/bin/server`
+- Gemma 2B Instruct Q4：`/opt/models/gemma-2b-it-q4_k_m.gguf`
 
-若 tiny 中文準確度不足，可改用 base：
+Whisper 模型選擇：
 
-```bash
-WHISPER_MODEL=base ./scripts/build_whisper.sh
-```
+| 模型 | 大小 | Jetson CPU 速度 | 中文準確度 |
+|------|------|----------------|-----------|
+| tiny | 77MB | ~9s | 差 |
+| base（推薦）| 142MB | ~19s | 中等 |
+| small | 461MB | ~70s | 好但太慢 |
 
-並修改 config 的模型路徑。
+注意：Jetson Nano CUDA 10.2 需要特殊 patch 才能編譯 llama.cpp（NEON intrinsics + cuBLAS 相容）。詳見 scripts/ 中的編譯腳本。
 
 ## 4. 建立設定檔
 
@@ -113,12 +117,14 @@ HOME_ASSISTANT_TOKEN=...
 ## 5. 啟動 llama-server
 
 ```bash
-/opt/llama.cpp/build/bin/llama-server \
-  -m /opt/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
-  --alias qwen2.5-0.5b-instruct \
+/opt/llama.cpp/build/bin/server \
+  -m /opt/models/gemma-2b-it-q4_k_m.gguf \
+  --alias gemma-2b-it \
   --host 127.0.0.1 --port 8080 \
-  -c 1024 -t 4 -tb 4 -ngl 0 -n 160
+  -c 256 -t 4 -ngl 99 -n 120
 ```
+
+`-ngl 99` 將所有層 offload 到 GPU（CUDA）。若記憶體不足可改 `-ngl 12`。
 
 確認：
 
