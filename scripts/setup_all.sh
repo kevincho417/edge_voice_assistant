@@ -8,9 +8,30 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "=== Jetson Nano Edge Voice Assistant Setup ==="
 echo "Project: $PROJECT_DIR"
 
-# 1. System packages
+# 1. System packages (use wget+dpkg fallback if apt fails)
 echo "[1/7] Installing system packages..."
-bash "$PROJECT_DIR/scripts/install_system.sh"
+if sudo apt-get update -qq 2>/dev/null && sudo apt-get install -y gcc-8 g++-8 espeak-ng curl libcurl4-openssl-dev 2>/dev/null; then
+  echo "System packages installed via apt"
+else
+  echo "apt failed, downloading .deb packages via wget..."
+  DEB_DIR="/tmp/debs"
+  mkdir -p "$DEB_DIR"
+  BASE="https://ports.ubuntu.com/ubuntu-ports/pool"
+  W="wget --no-check-certificate -q"
+  $W -O "$DEB_DIR/cpp-8.deb"              "$BASE/universe/g/gcc-8/cpp-8_8.4.0-1ubuntu1~18.04_arm64.deb"
+  $W -O "$DEB_DIR/gcc-8.deb"              "$BASE/universe/g/gcc-8/gcc-8_8.4.0-1ubuntu1~18.04_arm64.deb"
+  $W -O "$DEB_DIR/g++-8.deb"              "$BASE/universe/g/gcc-8/g++-8_8.4.0-1ubuntu1~18.04_arm64.deb"
+  $W -O "$DEB_DIR/libgcc-8-dev.deb"       "$BASE/main/g/gcc-8/libgcc-8-dev_8.4.0-1ubuntu1~18.04_arm64.deb"
+  $W -O "$DEB_DIR/libstdc++-8-dev.deb"    "$BASE/universe/g/gcc-8/libstdc++-8-dev_8.4.0-1ubuntu1~18.04_arm64.deb"
+  $W -O "$DEB_DIR/libasan5.deb"           "$BASE/main/g/gcc-8/libasan5_8.4.0-1ubuntu1~18.04_arm64.deb"
+  $W -O "$DEB_DIR/libubsan1.deb"          "$BASE/main/g/gcc-8/libubsan1_8.4.0-1ubuntu1~18.04_arm64.deb"
+  $W -O "$DEB_DIR/espeak-ng.deb"          "$BASE/universe/e/espeak-ng/espeak-ng_1.49.2+dfsg-1_arm64.deb"
+  $W -O "$DEB_DIR/curl.deb"               "$BASE/main/c/curl/curl_7.58.0-2ubuntu3.24_arm64.deb"
+  $W -O "$DEB_DIR/libcurl4-openssl-dev.deb" "$BASE/main/c/curl/libcurl4-openssl-dev_7.58.0-2ubuntu3.24_arm64.deb"
+  sudo dpkg -i "$DEB_DIR"/*.deb || true
+  echo "System packages installed via wget+dpkg"
+fi
+sudo usermod -aG audio "${SUDO_USER:-$USER}" 2>/dev/null || true
 
 # 2. Install newer cmake
 echo "[2/7] Installing cmake 3.28..."
