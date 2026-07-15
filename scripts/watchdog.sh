@@ -5,7 +5,7 @@
 LLAMA_BIN="/opt/llama.cpp/build/bin/server"
 LLAMA_MODEL="/opt/models/gemma-2b-it-q4_k_m.gguf"
 LLAMA_ARGS="--alias gemma-2b-it --host 127.0.0.1 --port 8080 -c 256 -t 4 -ngl 99 -n 120"
-ASSISTANT_DIR="/home/jetson/edge_voice_assistant"
+ASSISTANT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ASSISTANT_DIR/.env"
 CHECK_INTERVAL=15
 

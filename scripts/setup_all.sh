@@ -162,6 +162,9 @@ cd "$PROJECT_DIR"
 [ -f .env ] || cp .env.example .env
 [ -f config/config.json ] || cp config/config.example.json config/config.json
 
+# Fix config path in .env to match actual project location
+sed -i "s|EDGE_ASSISTANT_CONFIG=.*|EDGE_ASSISTANT_CONFIG=$PROJECT_DIR/config/config.json|" .env
+
 python3 -c "
 import json
 with open('config/config.json') as f:
