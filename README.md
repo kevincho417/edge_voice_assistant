@@ -17,13 +17,65 @@
 - Watchdog 自動重啟 + 記憶體保護
 - 純 Python 3.6+ 標準函式庫（+ opencc），不依賴 FastAPI 或新版 Google SDK
 
-## 快速部署（3 個指令）
+## 網路設定（部署前必做）
 
-在全新或重刷的 Jetson Nano 4GB 上：
+Jetson Nano 需要透過網路下載套件和模型。以下提供兩種連線方式：
+
+### 方式一：USB WiFi 接收器（推薦）
 
 ```bash
-# 1. 確保有網路（筆電 WiFi 共用時需設定 gateway）
+# Jetson 上插入 USB WiFi 後
+sudo nmcli device wifi connect "你的WiFi名稱" password "你的WiFi密碼" ifname wlan0
+
+# 若預設 gateway 走 eth0，需刪除讓流量走 WiFi
+sudo ip route del default via 192.168.1.1 dev eth0
+```
+
+### 方式二：筆電 WiFi 共用（透過乙太網路線）
+
+**Windows 筆電設定：**
+
+1. 開啟「設定」→「網路和網際網路」→「行動熱點」或「WiFi」
+2. 找到你正在使用的 WiFi 連線 → 「內容」→「共用」
+3. 勾選「允許其他網路使用者透過這台電腦的網際網路連線來連線」
+4. 家用網路連線選「乙太網路」→ 確定
+5. Windows 會自動將乙太網路設為 `192.168.137.1`
+
+**讓 Jetson 保持固定 IP（192.168.1.100）同時能上網：**
+
+PowerShell（**以系統管理員身分執行**）：
+```powershell
+# 在乙太網路上加一個跟 Jetson 同網段的 IP
+netsh interface ip add address "乙太網路" 192.168.1.1 255.255.255.0
+```
+
+**Jetson 上設定 gateway：**
+```bash
 sudo ip route add default via 192.168.1.1 dev eth0
+```
+
+### 驗證網路
+
+```bash
+# 測試外網連線
+ping -c 2 8.8.8.8
+
+# 測試 DNS
+ping -c 2 github.com
+
+# 測試 HTTPS（apt 可能不通，但 HTTPS 可以）
+wget -q --spider https://github.com && echo "OK"
+```
+
+三個都通過即可開始部署。
+
+---
+
+## 快速部署（3 個指令）
+
+在全新或重刷的 Jetson Nano 4GB 上（確認網路已通）：
+
+```bash
 
 # 2. Clone 並一鍵安裝（約 40-60 分鐘）
 git clone https://github.com/kevincho417/edge_voice_assistant.git
