@@ -84,6 +84,12 @@ bash scripts/setup_all.sh
 
 # 3. （可選）設定 Gemini API key
 nano .env
+# .env 檔案格式：
+# GEMINI_API_KEY=你的Gemini_API_Key
+# BRAVE_SEARCH_API_KEY=
+# HOME_ASSISTANT_TOKEN=
+# EDGE_ASSISTANT_MODE=local
+# EDGE_ASSISTANT_CONFIG=/home/jetson/edge_voice_assistant/config/config.json
 
 # 4. 啟動
 bash scripts/watchdog.sh
